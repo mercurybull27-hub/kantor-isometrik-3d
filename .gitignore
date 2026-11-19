@@ -1,0 +1,16 @@
+# rahasia
+.env
+*.env.local
+
+# log
+*.log
+server.err.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# dependensi (proyek ini tidak memakai paket npm)
+node_modules/
