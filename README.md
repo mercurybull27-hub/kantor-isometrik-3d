@@ -6,6 +6,16 @@ Setiap agen punya **otak AI sendiri** lewat server lokal: DeepSeek, Gemini, dan 
 
 ![Pratinjau kantor isometrik](preview.jpg)
 
+## Online
+
+Demo publik: **https://mercurybull27-hub.github.io/kantor-isometrik-3d/**
+
+Halaman GitHub Pages bersifat statis. Scene, mode contoh, dan **otak lokal** berjalan di browser, tetapi panggilan model asli (DeepSeek/Gemini/GPT) memerlukan server Node. Untuk menjalankan server AI secara online, deploy repo ini ke Render (butuh akun Render, login sekali):
+
+[Deploy ke Render](https://render.com/deploy?repo=https://github.com/mercurybull27-hub/kantor-isometrik-3d)
+
+Render membaca `render.yaml`, lalu meminta kunci API. Tanpa kunci, server online tetap berjalan dalam mode simulasi.
+
 ## Menjalankan
 
 Butuh **Node.js 18+** (tanpa `npm install`, tanpa dependensi).
