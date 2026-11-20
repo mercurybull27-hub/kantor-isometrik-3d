@@ -14,3 +14,7 @@ Thumbs.db
 
 # dependensi (proyek ini tidak memakai paket npm)
 node_modules/
+
+# artefak tunnel / deploy lokal
+public-url.txt
+tools/

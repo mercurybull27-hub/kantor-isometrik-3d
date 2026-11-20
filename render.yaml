@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: kantor-isometrik
+    runtime: node
+    plan: free
+    buildCommand: "echo no build needed"
+    startCommand: "node server.mjs"
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      # Opsional: isi untuk mengunci akses publik. URL menjadi https://.../?k=TOKEN
+      - key: ACCESS_TOKEN
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false

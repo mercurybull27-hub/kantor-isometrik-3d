@@ -304,6 +304,38 @@ function sendJson(res, status, obj, headers = {}) {
   });
 }
 
+const GATE_HTML = `<!doctype html><html lang="id"><meta charset="utf-8"><title>Akses terbatas</title>
+<style>body{font-family:system-ui,sans-serif;background:#eef4fb;color:#334155;display:grid;place-items:center;height:100vh;margin:0}div{background:#fff;border:1px solid #e2eaf5;border-radius:16px;padding:24px 28px;max-width:360px;box-shadow:0 18px 40px rgba(31,48,74,.12);line-height:1.6;font-size:13px}h1{font-size:15px;margin:0 0 8px}</style>
+<div><h1>Akses perlu tautan lengkap</h1>Halaman ini dilindungi kunci akses. Buka tautan yang menyertakan <b>?k=...</b> dari pemilik kantor.</div></html>`;
+
+// Hanya berlaku untuk permintaan yang masuk lewat tunnel publik (Cloudflare).
+// localhost tetap bisa dibuka tanpa kunci.
+function checkAccess(req, url, res) {
+  const token = (process.env.ACCESS_TOKEN || '').trim();
+  if (!token) return true;
+  const host = String(req.headers.host || '').split(':')[0].replace(/^\[|\]$/g, '');
+  const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '0.0.0.0';
+  if (isLocal) return true;
+
+  const cookie = req.headers.cookie || '';
+  if (cookie.split(';').some((part) => part.trim() === `k=${token}`)) return true;
+
+  if (url.searchParams.get('k') === token) {
+    const rest = new URL(url.toString());
+    rest.searchParams.delete('k');
+    const location = rest.pathname + (rest.search || '');
+    send(res, 302, 'Mengalihkan...', {
+      location,
+      'set-cookie': `k=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000`,
+      'cache-control': 'no-store',
+    });
+    return false;
+  }
+
+  send(res, 401, GATE_HTML, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+  return false;
+}
+
 async function readJsonBody(req, limit = 16 * 1024) {
   let size = 0;
   const chunks = [];
@@ -432,7 +464,9 @@ async function handleAgent(req, res) {
 
 /* ------------------------- server ------------------------- */
 const server = http.createServer(async (req, res) => {
+  loadEnv();
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  if (!checkAccess(req, url, res)) return;
   const pathname = url.pathname;
 
   if (pathname === '/api/health') {

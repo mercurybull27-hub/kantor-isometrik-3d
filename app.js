@@ -1158,7 +1158,8 @@ let beatIdx = 0;
 
 /* ------------------------- otak AI ------------------------- */
 const BRAIN_COLORS = { deepseek: '#4d6bfe', gemini: '#4285f4', openai: '#0f9f7a' };
-const aiState = { mode: false, supported: false, readyCount: 0, config: null };
+const aiState = { mode: false, supported: false, readyCount: 0, config: null, localOnly: false };
+const BRAIN_ORDER = ['deepseek', 'gemini', 'openai', 'deepseek', 'gemini', 'openai'];
 const brainInfo = (a) => aiState.config?.agents?.[a.index] || null;
 
 const captionEl = document.getElementById('caption');
@@ -1434,14 +1435,18 @@ function setAIMode(on) {
       a.nextThinkAt = now + 0.8 + i * 0.9;
     });
     setCaption(
-      aiState.readyCount ? 'Otak AI' : 'Otak AI · simulasi',
-      aiState.readyCount
-        ? 'Enam agen meminta keputusan ke model masing-masing…'
-        : 'Kunci model belum diisi — otak AI berjalan dalam mode simulasi.'
+      aiState.localOnly ? 'Otak lokal · simulasi' : aiState.readyCount ? 'Otak AI' : 'Otak AI · simulasi',
+      aiState.localOnly
+        ? 'Mode statis — otak lokal mengambil keputusan tanpa memanggil model.'
+        : aiState.readyCount
+          ? 'Enam agen meminta keputusan ke model masing-masing…'
+          : 'Kunci model belum diisi — otak AI berjalan dalam mode simulasi.'
     );
-    aiStatusEl.textContent = aiState.readyCount
-      ? 'Aktif — tiap agen berpikir tiap beberapa detik.'
-      : 'Simulasi aktif: isi kunci di .env untuk memakai model asli.';
+    aiStatusEl.textContent = aiState.localOnly
+      ? 'Simulasi lokal: server AI tidak terhubung.'
+      : aiState.readyCount
+        ? 'Aktif — tiap agen berpikir tiap beberapa detik.'
+        : 'Simulasi aktif: isi kunci di .env untuk memakai model asli.';
   } else {
     agents.forEach((a) => { a.thinking = false; });
     randomizeLive();
@@ -1477,6 +1482,23 @@ async function thinkWithAI(a) {
   if (hovered === a) tipSig = '';
   const reports = agents.filter((x) => x.state === 'report').length;
   const urgent = agents.filter((x) => x.state === 'urgent').length;
+
+  // Versi statis (mis. GitHub Pages): tetap hidup dengan otak lokal.
+  if (aiState.localOnly) {
+    setTimeout(() => {
+      if (!aiState.mode) return;
+      const f = localFallback(a);
+      a.setState(f.state);
+      a.brainNote = f.note;
+      a.brainSource = 'lokal';
+      a.thinking = false;
+      a.nextThinkAt = performance.now() / 1000 + 6 + Math.random() * 4;
+      const stateText = (STATE_LABEL[f.state] || f.state).toLowerCase();
+      setCaption('Otak lokal · simulasi', `${a.cfg.name}: ${stateText} — “${f.note}”`);
+      if (hovered === a) tipSig = '';
+    }, 700);
+    return;
+  }
 
   try {
     const res = await fetch('/api/agent', {
@@ -1544,6 +1566,7 @@ async function initAI() {
     aiState.config = cfg;
     aiState.supported = true;
     aiState.readyCount = cfg.readyCount || 0;
+    aiState.localOnly = false;
     renderBrains(cfg);
     btnAI.disabled = false;
     aiBtnLabel.textContent = 'Otak AI';
@@ -1552,13 +1575,31 @@ async function initAI() {
       : 'Mode simulasi — isi kunci model di .env';
     setAIMode(true);
   } catch {
-    aiState.supported = false;
-    btnAI.disabled = true;
-    btnAI.classList.remove('on');
-    btnAI.setAttribute('aria-pressed', 'false');
-    aiBtnLabel.textContent = 'Otak AI';
-    aiStatusEl.textContent = 'Server AI tidak aktif. Jalankan start.bat / node server.mjs.';
-    brainsEl.innerHTML = '<li><span class="bd" style="background:#94a3b8"></span> Tidak terhubung</li>';
+    aiState.localOnly = true;
+    aiState.supported = true;
+    aiState.readyCount = 0;
+    aiState.config = {
+      ai: true,
+      readyCount: 0,
+      providers: {
+        deepseek: { label: 'DeepSeek', model: 'tanpa server', ready: false },
+        gemini: { label: 'Gemini', model: 'tanpa server', ready: false },
+        openai: { label: 'GPT', model: 'tanpa server', ready: false },
+      },
+      agents: BRAIN_ORDER.map((id, index) => ({
+        index,
+        provider: id,
+        label: id === 'openai' ? 'GPT' : id === 'gemini' ? 'Gemini' : 'DeepSeek',
+        model: 'tanpa server',
+        ready: false,
+      })),
+    };
+    renderBrains(aiState.config);
+    btnAI.disabled = false;
+    aiBtnLabel.textContent = 'Otak AI · lokal';
+    btnAI.title = 'Simulasi lokal — server AI tidak terhubung';
+    aiStatusEl.textContent = 'Mode statis: otak lokal tanpa panggilan model.';
+    setAIMode(true);
   }
 }
 
